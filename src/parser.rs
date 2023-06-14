@@ -151,6 +151,8 @@ fn handle_table_macro(macro_item: syn::ItemMacro, _config: &GenerationConfig) ->
 
     let mut skip_until_semicolon = false;
     let mut skip_square_brackets = false;
+
+    let crate_schema = _config.crate_schema.clone();
     
     for item in macro_item.mac.tokens.into_iter() {
         if skip_until_semicolon {
@@ -238,7 +240,7 @@ fn handle_table_macro(macro_item: syn::ItemMacro, _config: &GenerationConfig) ->
                                     // add the column
                                     table_columns.push(ParsedColumnMacro {
                                         name: column_name.expect("Unsupported schema format! (Invalid column name syntax)"),
-                                        ty: schema_type_to_rust_type(column_type.expect("Unsupported schema format! (Invalid column type syntax)").to_string()),
+                                        ty: schema_type_to_rust_type(crate_schema.clone(), column_type.expect("Unsupported schema format! (Invalid column type syntax)").to_string()),
                                         is_nullable: column_nullable,
                                         is_unsigned: column_unsigned,
                                     });
@@ -295,7 +297,7 @@ fn handle_table_macro(macro_item: syn::ItemMacro, _config: &GenerationConfig) ->
 //
 // The docs page for sql_types is comprehensive but it hides some alias types like Int4, Float8, etc.:
 // https://docs.rs/diesel/latest/diesel/sql_types/index.html
-fn schema_type_to_rust_type(schema_type: String) -> String {  
+fn schema_type_to_rust_type(crate_schema: String, schema_type: String) -> String {  
     match schema_type.to_lowercase().as_str() {
         "unsigned" => panic!("Unsigned types are not yet supported, please open an issue if you need this feature!"), // TODO: deal with this later
         "inet" => panic!("Unsigned types are not yet supported, please open an issue if you need this feature!"), // TODO: deal with this later
@@ -356,7 +358,7 @@ fn schema_type_to_rust_type(schema_type: String) -> String {
         "tstzrange" => "(std::collections::Bound<chrono::DateTime<chrono::Utc>>, std::collections::Bound<chrono::DateTime<chrono::Utc>>)",
 
         // json
-        "json" => "serde::Value",
+        "json" => "serde_json::Value",
         "jsonb" => "serde_json::Value",
 
         // misc
@@ -374,7 +376,7 @@ fn schema_type_to_rust_type(schema_type: String) -> String {
          */
         _ => {
             // return the schema type if no type is found (this means generation is broken for this particular schema)
-            let _type = format!("crate::schema::sql_types::{schema_type}");
+            let _type = schema_type.clone();
             return _type;
         }
     }.to_string()

@@ -100,7 +100,7 @@ impl<'a> Struct<'a> {
     }
 
     fn attr_derive(&self) -> String {
-        format!("#[derive(Debug, Serialize, Deserialize, Clone, Queryable, Insertable{derive_aschangeset}{derive_identifiable}{derive_associations}{derive_selectable})]",
+        format!("#[derive(Default, Debug, Serialize, Deserialize, Clone, Queryable, Insertable{derive_aschangeset}{derive_identifiable}{derive_associations}{derive_selectable})]",
                 derive_selectable = match self.ty {
                     StructType::Read => { ", Selectable" }
                     _ => { "" }
@@ -149,7 +149,12 @@ impl<'a> Struct<'a> {
             .map(|c| {
                 let name = c.name.to_string();
                 let base_type = if c.is_nullable {
-                    format!("Option<{}>", c.ty)
+                    // Support field also unsigned.
+                    let mut ty: String = c.ty.clone();
+                    if c.is_unsigned {
+                        ty = ty.replace('i', "u")
+                    }
+                    format!("Option<{}>", ty)
                 } else if c.is_unsigned {
                     c.ty.replace('i', "u")
                 } else {
@@ -262,7 +267,10 @@ fn build_table_fns(
     create_struct: Struct,
     update_struct: Struct,
 ) -> String {
+    return "".to_string();
+
     let table_options = config.table(&table.name.to_string());
+    let crate_schema = config.crate_schema.clone();
 
     let primary_column_name_and_type: Vec<(String, String)> = table
         .primary_key_columns
@@ -349,9 +357,9 @@ impl {struct_name} {{
         buffer.push_str(&format!(
             r##"
     pub{async_keyword} fn create(db: &mut Connection, item: &{create_struct_identifier}) -> QueryResult<Self> {{
-        use crate::schema::{table_name}::dsl::*;
+        use {crate_schema}::{table_name}::dsl::*;
 
-        insert_into({table_name}).values(item).get_result::<Self>(db){await_keyword}
+        diesel::insert_into({table_name}).values(item).get_result::<Self>(db){await_keyword}
     }}
 "##
         ));
@@ -359,9 +367,9 @@ impl {struct_name} {{
         buffer.push_str(&format!(
             r##"
     pub{async_keyword} fn create(db: &mut Connection) -> QueryResult<Self> {{
-        use crate::schema::{table_name}::dsl::*;
+        use {crate_schema}::{table_name}::dsl::*;
 
-        insert_into({table_name}).default_values().get_result::<Self>(db){await_keyword}
+        diesel::insert_into({table_name}).default_values().get_result::<Self>(db){await_keyword}
     }}
 "##
         ));
@@ -370,7 +378,7 @@ impl {struct_name} {{
     buffer.push_str(&format!(
         r##"
     pub{async_keyword} fn read(db: &mut Connection, {item_id_params}) -> QueryResult<Self> {{
-        use crate::schema::{table_name}::dsl::*;
+        use {crate_schema}::{table_name}::dsl::*;
 
         {table_name}.{item_id_filters}.first::<Self>(db){await_keyword}
     }}
@@ -380,7 +388,7 @@ impl {struct_name} {{
     buffer.push_str(&format!(r##"
     /// Paginates through the table where page is a 0-based index (i.e. page 0 is the first page)
     pub{async_keyword} fn paginate(db: &mut Connection, page: i64, page_size: i64) -> QueryResult<PaginationResult<Self>> {{
-        use crate::schema::{table_name}::dsl::*;
+        use {crate_schema}::{table_name}::dsl::*;
 
         let page_size = if page_size < 1 {{ 1 }} else {{ page_size }};
         let total_items = {table_name}.count().get_result(db){await_keyword}?;
@@ -408,7 +416,7 @@ impl {struct_name} {{
 
         buffer.push_str(&format!(r##"
     pub{async_keyword} fn update(db: &mut Connection, {item_id_params}, item: &{update_struct_identifier}) -> QueryResult<Self> {{
-        use crate::schema::{table_name}::dsl::*;
+        use {crate_schema}::{table_name}::dsl::*;
 
         diesel::update({table_name}.{item_id_filters}).set(item).get_result(db){await_keyword}
     }}
@@ -418,7 +426,7 @@ impl {struct_name} {{
     buffer.push_str(&format!(
         r##"
     pub{async_keyword} fn delete(db: &mut Connection, {item_id_params}) -> QueryResult<usize> {{
-        use crate::schema::{table_name}::dsl::*;
+        use {crate_schema}::{table_name}::dsl::*;
 
         diesel::delete({table_name}.{item_id_filters}).execute(db){await_keyword}
     }}
@@ -435,12 +443,16 @@ impl {struct_name} {{
 
 fn build_imports(table: &ParsedTableMacro, config: &GenerationConfig) -> String {
     let table_options = config.table(&table.name.to_string());
+    let crate_schema = config.crate_schema.clone();
+    let crate_models = config.crate_models.clone();
+    let crate_enums = config.crate_enums.clone();
     let belongs_imports = table
         .foreign_keys
         .iter()
         .map(|fk| {
             format!(
-                "use crate::models::{foreign_table_name_model}::{singular_struct_name};",
+                "use {crate_models}::{foreign_table_name_model}::{singular_struct_name};",
+                crate_models = crate_models,
                 foreign_table_name_model = fk.0.to_string().to_snake_case().to_lowercase(),
                 singular_struct_name = fk.0.to_string().to_pascal_case().to_singular()
             )
@@ -451,19 +463,26 @@ fn build_imports(table: &ParsedTableMacro, config: &GenerationConfig) -> String 
     let async_imports = if table_options.get_async() { "\nuse diesel_async::RunQueryDsl;" } else { "" };
     #[cfg(not(feature = "async"))]
     let async_imports = "";
+
+    let mut enum_imports = "".to_string();
+    if crate_enums != "" {
+        enum_imports = format!("\nuse {}::*;", crate_enums.clone());
+    }
     format!(
         indoc! {"
-        use crate::diesel::*;
-        use crate::schema::*;
+        use {crate_schema}::*;
+        use diesel::prelude::*;
         use diesel::QueryResult;
-        use serde::{{Deserialize, Serialize}};{async_imports}
+        use serde::{{Deserialize, Serialize}};{async_imports}{enum_imports}
         {belongs_imports}
 
         type Connection = {connection_type};
     "},
+        crate_schema = crate_schema,
         connection_type = config.connection_type,
         belongs_imports = belongs_imports,
         async_imports = async_imports,
+        enum_imports = enum_imports,
     )
 }
 

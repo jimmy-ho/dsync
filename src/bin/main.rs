@@ -79,6 +79,10 @@ fn main() {
             default_table_options,
             table_options: HashMap::from([]),
             connection_type: args.connection_type,
+            // Defaults.
+            crate_schema: "crate::schema".to_string(),
+            crate_models: "crate::models".to_string(),
+            crate_enums: "".to_string(),
         },
     );
 }

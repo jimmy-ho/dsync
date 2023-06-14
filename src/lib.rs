@@ -93,6 +93,9 @@ pub struct GenerationConfig<'a> {
     pub table_options: HashMap<&'a str, TableOptions<'a>>,
     pub default_table_options: TableOptions<'a>,
     pub connection_type: String,
+    pub crate_schema: String,
+    pub crate_models: String,
+    pub crate_enums: String,
 }
 
 impl GenerationConfig<'_> {
