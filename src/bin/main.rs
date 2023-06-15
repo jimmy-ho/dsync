@@ -83,6 +83,7 @@ fn main() {
             crate_schema: "crate::schema".to_string(),
             crate_models: "crate::models".to_string(),
             crate_enums: "".to_string(),
+            mysql_naive_datetime_import: "crate::diesel".to_string(),
         },
     );
 }

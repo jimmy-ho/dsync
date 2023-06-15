@@ -113,12 +113,15 @@ impl<'a> Struct<'a> {
                 },
                 derive_identifiable = match self.ty {
                     StructType::Read => {
-                        if self.table.foreign_keys.len() > 0 { ", Identifiable" } else { "" }
+                        if self.table.foreign_keys.len() > 0 || self.table.primary_key_column_names().len() > 0 { ", Identifiable" } else { "" }
                     }
                     _ => { "" }
                 },
                 derive_aschangeset = match self.ty {
-                    _ => if self.fields().iter().all(|f| self.table.primary_key_column_names().contains(&f.name)) {""} else { ", AsChangeset" }
+                    _ => {
+                        if self.fields().iter().all(|f| self.table.primary_key_column_names().contains(&f.name)) {""} else { ", AsChangeset" }
+                        // ""
+                    }
                 }
         )
     }
@@ -446,6 +449,7 @@ fn build_imports(table: &ParsedTableMacro, config: &GenerationConfig) -> String 
     let crate_schema = config.crate_schema.clone();
     let crate_models = config.crate_models.clone();
     let crate_enums = config.crate_enums.clone();
+    let mysql_naive_datetime_import = config.mysql_naive_datetime_import.clone();
     let belongs_imports = table
         .foreign_keys
         .iter()
@@ -470,19 +474,23 @@ fn build_imports(table: &ParsedTableMacro, config: &GenerationConfig) -> String 
     }
     format!(
         indoc! {"
+        #![allow(unused)]
+
         use {crate_schema}::*;
+        use {mysql_naive_datetime_import}::*;
         use diesel::prelude::*;
-        use diesel::QueryResult;
         use serde::{{Deserialize, Serialize}};{async_imports}{enum_imports}
         {belongs_imports}
 
-        type Connection = {connection_type};
+        // type Connection = {connection_type};
     "},
         crate_schema = crate_schema,
         connection_type = config.connection_type,
         belongs_imports = belongs_imports,
-        async_imports = async_imports,
+        // async_imports = async_imports,
+        async_imports = "",
         enum_imports = enum_imports,
+        mysql_naive_datetime_import = mysql_naive_datetime_import,
     )
 }
 

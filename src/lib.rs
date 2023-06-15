@@ -96,6 +96,7 @@ pub struct GenerationConfig<'a> {
     pub crate_schema: String,
     pub crate_models: String,
     pub crate_enums: String,
+    pub mysql_naive_datetime_import: String,
 }
 
 impl GenerationConfig<'_> {

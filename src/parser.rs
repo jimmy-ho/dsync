@@ -349,10 +349,10 @@ fn schema_type_to_rust_type(crate_schema: String, schema_type: String) -> String
         // date & time
         "date" => "chrono::NaiveDate",
         "daterange" => "(std::collections::Bound<chrono::NaiveDate>, std::collections::Bound<chrono::NaiveDate>)",
-        "datetime" => "chrono::NaiveDateTime",
+        "datetime" => "MysqlNaiveDateTime",
         "time" => "chrono::NaiveTime",
-        "timestamp" => "chrono::NaiveDateTime",
-        "tsrange" => "(std::collections::Bound<chrono::NaiveDateTime>, std::collections::Bound<chrono::NaiveDateTime>)",
+        "timestamp" => "MysqlNaiveDateTime",
+        "tsrange" => "(std::collections::Bound<MysqlNaiveDateTime>, std::collections::Bound<MysqlNaiveDateTime>)",
         "timestamptz" => "chrono::DateTime<chrono::Utc>",
         "timestamptzsqlite" => "chrono::DateTime<chrono::Utc>",
         "tstzrange" => "(std::collections::Bound<chrono::DateTime<chrono::Utc>>, std::collections::Bound<chrono::DateTime<chrono::Utc>>)",
